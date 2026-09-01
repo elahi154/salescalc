@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { LoanInputState, CalculationResult, AmortizationRow, TenureComparisonItem } from '@/types/calculator';
 import { formatINR, formatINRCompact } from '@/lib/calculations/formatting';
 import { PaymentDistribution } from '../charts/PaymentDistribution';
-import { X, Sparkles, Presentation, ArrowLeft, Clock, Table } from 'lucide-react';
+import { X, Sparkles, Presentation, Clock, Table } from 'lucide-react';
 
 interface CustomerViewModalProps {
   isOpen: boolean;
@@ -27,8 +27,11 @@ export const CustomerViewModal: React.FC<CustomerViewModalProps> = ({
 
   if (!isOpen) return null;
 
-  const { loanAmount, emi, totalInterest, totalCharges, totalCost, monthlyRate, annualRate, tenureMonths } = calculation;
+  const { loanAmount, emi, totalInterest, monthlyRate, annualRate } = calculation;
   const { tenureValue, tenureType } = inputs;
+
+  // Pure Total Payable (Principal + Interest only)
+  const cleanTotalPayable = loanAmount + totalInterest;
 
   const monthlyRateFormatted = (monthlyRate * 100).toFixed(2);
   const annualRateFormatted = (annualRate * 100).toFixed(2);
@@ -100,13 +103,13 @@ export const CustomerViewModal: React.FC<CustomerViewModalProps> = ({
 
         </div>
 
-        {/* 2. PAYMENT SUMMARY CARDS */}
+        {/* 2. PAYMENT SUMMARY CARDS (2 CARDS ONLY - NO ADDITIONAL CHARGES) */}
         <div className="space-y-3">
           <h4 className="text-xs font-extrabold uppercase tracking-wider text-slate-500">
             Payment Summary
           </h4>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-center">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-center">
             
             <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800">
               <span className="text-xs font-medium text-slate-500 block">Total Interest</span>
@@ -115,17 +118,10 @@ export const CustomerViewModal: React.FC<CustomerViewModalProps> = ({
               </span>
             </div>
 
-            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800">
-              <span className="text-xs font-medium text-slate-500 block">Additional Charges</span>
-              <span className="text-xl font-extrabold text-amber-500">
-                {formatINR(totalCharges)}
-              </span>
-            </div>
-
             <div className="p-4 rounded-2xl bg-slate-900 text-white dark:bg-blue-950 dark:border-blue-800 border">
               <span className="text-xs font-medium text-blue-200 block">Total Payable</span>
               <span className="text-xl font-extrabold text-white">
-                {formatINRCompact(totalCost)}
+                {formatINRCompact(cleanTotalPayable)}
               </span>
             </div>
 

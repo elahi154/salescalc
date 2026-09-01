@@ -1,26 +1,85 @@
 'use client';
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useEffect, useRef } from 'react';
 import { Navbar } from '@/components/layout/Navbar';
 import { Footer } from '@/components/layout/Footer';
 import { useLoanCalculator } from '@/hooks/useLoanCalculator';
-import { LoanInputControls } from '@/components/calculator/LoanInputControls';
 import { calculateInterestSensitivity } from '@/lib/calculations/interest';
-import { formatINR } from '@/lib/calculations/formatting';
-import { Percent, TrendingUp, Sparkles, Table } from 'lucide-react';
+import { formatINR, formatINRCompact } from '@/lib/calculations/formatting';
+import {
+  Percent,
+  TrendingUp,
+  Sparkles,
+  IndianRupee,
+  Clock,
+  Plus,
+  Minus,
+  ArrowUpRight,
+  ArrowDownRight,
+} from 'lucide-react';
 
 export default function InterestCalculatorPage() {
-  const { inputs, updateInput, setFullState, calculationResult } = useLoanCalculator();
+  const {
+    inputs,
+    updateInput,
+    setFullState,
+    calculationResult,
+  } = useLoanCalculator();
 
+  const { loanAmount, interestRate, rateType, tenureValue, tenureType } = inputs;
+  const { emi, totalInterest, totalPayable } = calculationResult;
+
+  // Initialize safe default: ₹5,00,000, 14% p.a., Annual/Yearly by default
+  const initialized = useRef(false);
+  useEffect(() => {
+    if (!initialized.current) {
+      initialized.current = true;
+      setFullState({
+        loanAmount: 500000,
+        interestRate: 14,
+        rateType: 'annual',
+      });
+    }
+  }, [setFullState]);
+
+  // Steppers
+  const stepAmount = (delta: number) => {
+    const next = Math.min(100000000, Math.max(0, loanAmount + delta));
+    updateInput('loanAmount', next);
+  };
+
+  const stepRate = (delta: number) => {
+    const max = rateType === 'monthly' ? 5.0 : 50.0;
+    const min = 0.1;
+    const next = Number(Math.min(max, Math.max(min, interestRate + delta)).toFixed(2));
+    updateInput('interestRate', next);
+  };
+
+  const stepTenure = (delta: number) => {
+    const max = tenureType === 'years' ? 40 : 480;
+    const min = 1;
+    const next = Math.min(max, Math.max(min, tenureValue + delta));
+    updateInput('tenureValue', next);
+  };
+
+  // Sensitivity calculation
   const sensitivityRows = useMemo(() => {
     return calculateInterestSensitivity(
-      inputs.loanAmount,
-      inputs.interestRate,
-      inputs.rateType,
-      inputs.tenureValue,
-      inputs.tenureType
+      loanAmount || 0,
+      interestRate || 0,
+      rateType || 'annual',
+      tenureValue || 1,
+      tenureType || 'years'
     );
-  }, [inputs]);
+  }, [loanAmount, interestRate, rateType, tenureValue, tenureType]);
+
+  const presets = [
+    { label: '₹50k', val: 50000 },
+    { label: '₹1L', val: 100000 },
+    { label: '₹5L', val: 500000 },
+    { label: '₹10L', val: 1000000 },
+    { label: '₹25L', val: 2500000 },
+  ];
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50 dark:bg-slate-950 transition-colors text-slate-900 dark:text-white">
@@ -28,77 +87,388 @@ export default function InterestCalculatorPage() {
 
       <main className="flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 space-y-8">
         
+        {/* HEADER */}
         <div className="text-center max-w-2xl mx-auto space-y-2">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 text-xs font-bold uppercase tracking-wider">
-            <Percent className="w-3.5 h-3.5 text-purple-600" />
-            <span>Dedicated Interest Suite</span>
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 text-xs font-bold uppercase tracking-wider border border-purple-200 dark:border-purple-800">
+            <Percent className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
+            <span>Dedicated Interest Rate Suite</span>
           </div>
 
           <h1 className="text-3xl sm:text-4xl font-black tracking-tight">
-            Interest Rate Calculator
+            Interest Rate & Sensitivity Calculator
           </h1>
 
           <p className="text-sm sm:text-base text-slate-600 dark:text-slate-400 font-medium">
-            Understand monthly and annual interest rates and their impact on EMI.
+            Analyze the real-time EMI impact of minor interest rate fluctuations.
           </p>
         </div>
 
-        {/* Inputs */}
-        <LoanInputControls
-          inputs={inputs}
-          onUpdateInput={updateInput}
-          onSetFullState={setFullState}
-        />
+        {/* HERO CARD: LIVE INTEREST SUMMARY */}
+        <div className="rounded-3xl bg-gradient-to-br from-purple-700 via-indigo-800 to-slate-900 text-white p-6 sm:p-8 shadow-2xl border border-purple-500/30 space-y-6">
+          <div className="flex items-center justify-between text-purple-100 text-xs font-bold uppercase tracking-wider">
+            <span className="flex items-center gap-1.5">
+              <Sparkles className="w-4 h-4 text-amber-300" />
+              <span>Current Calculation Impact</span>
+            </span>
+            <span className="text-[11px] bg-black/25 px-2.5 py-1 rounded-full border border-white/10">
+              {rateType === 'annual' ? 'Annual Base Rate' : 'Monthly Flat Rate'}
+            </span>
+          </div>
 
-        {/* Rate Impact Sensitivity Table */}
-        <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 shadow-sm border border-slate-200/80 dark:border-slate-800 space-y-5">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-center">
+            <div>
+              <span className="text-xs uppercase font-bold tracking-wider text-purple-200 block">
+                Monthly EMI
+              </span>
+              <div className="text-3xl sm:text-4xl font-black text-white tracking-tight mt-0.5">
+                {formatINR(emi)}
+                <span className="text-xs font-normal text-purple-200 block sm:inline sm:ml-1">/ mo</span>
+              </div>
+            </div>
+
+            <div className="bg-black/25 backdrop-blur-md rounded-2xl p-3.5 border border-white/10">
+              <span className="text-[11px] text-purple-200 block font-medium">Total Interest Cost</span>
+              <span className="text-xl font-black text-amber-300 mt-0.5 block">
+                +{formatINR(totalInterest)}
+              </span>
+            </div>
+
+            <div className="bg-black/25 backdrop-blur-md rounded-2xl p-3.5 border border-white/10">
+              <span className="text-[11px] text-purple-200 block font-medium">Total Repayment</span>
+              <span className="text-xl font-black text-white mt-0.5 block">
+                {formatINR(totalPayable)}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* DIRECT EDITABLE INPUT CONTROLS CARD */}
+        <div className="bg-white dark:bg-slate-900 rounded-3xl p-5 sm:p-7 shadow-sm border border-slate-200/80 dark:border-slate-800 space-y-6">
+          <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+            <h2 className="text-base font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-purple-500" />
+              <span>Adjust Loan & Rate Details</span>
+            </h2>
+            <span className="text-xs text-slate-500 font-medium">Tap number to edit or use + / -</span>
+          </div>
+
+          {/* 1. LOAN AMOUNT */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between text-xs font-bold">
+              <span className="text-slate-700 dark:text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                <IndianRupee className="w-4 h-4 text-purple-600 dark:text-purple-400" /> Principal Amount
+              </span>
+              <span className="text-purple-600 dark:text-purple-400 font-extrabold">({formatINRCompact(loanAmount || 0)})</span>
+            </div>
+
+            <div className="flex items-center justify-between gap-3 bg-slate-50 dark:bg-slate-950 p-3 sm:p-4 rounded-2xl border border-slate-200 dark:border-slate-800 focus-within:border-purple-500 transition-colors">
+              <button
+                type="button"
+                onClick={() => stepAmount(-50000)}
+                className="w-10 h-10 rounded-xl bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 active:scale-95 text-slate-900 dark:text-white font-bold flex items-center justify-center transition-all shrink-0"
+              >
+                <Minus className="w-5 h-5" />
+              </button>
+
+              <div className="flex items-center justify-center flex-1">
+                <span className="text-2xl sm:text-3xl font-bold text-slate-400 mr-1">₹</span>
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  min={0}
+                  max={100000000}
+                  value={loanAmount === 0 ? '' : loanAmount}
+                  onChange={(e) => updateInput('loanAmount', e.target.value === '' ? 0 : Number(e.target.value))}
+                  className="w-full bg-transparent text-center font-black text-2xl sm:text-3xl text-slate-900 dark:text-white outline-none border-none p-0 focus:ring-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                  placeholder="0"
+                />
+              </div>
+
+              <button
+                type="button"
+                onClick={() => stepAmount(50000)}
+                className="w-10 h-10 rounded-xl bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 active:scale-95 text-slate-900 dark:text-white font-bold flex items-center justify-center transition-all shrink-0"
+              >
+                <Plus className="w-5 h-5" />
+              </button>
+            </div>
+
+            <input
+              type="range"
+              min={10000}
+              max={10000000}
+              step={10000}
+              value={Math.min(loanAmount, 10000000)}
+              onChange={(e) => updateInput('loanAmount', Number(e.target.value))}
+              className="w-full h-2.5 bg-slate-200 dark:bg-slate-800 rounded-lg appearance-none cursor-pointer accent-purple-600"
+            />
+
+            <div className="flex flex-wrap gap-2 pt-1">
+              {presets.map((p) => (
+                <button
+                  key={p.val}
+                  type="button"
+                  onClick={() => updateInput('loanAmount', p.val)}
+                  className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all ${
+                    loanAmount === p.val
+                      ? 'bg-purple-600 text-white shadow-sm'
+                      : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+                  }`}
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* 2. INTEREST RATE (ANNUAL BY DEFAULT) */}
+          <div className="space-y-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+            <div className="flex items-center justify-between text-xs font-bold">
+              <span className="text-slate-700 dark:text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                <Percent className="w-4 h-4 text-purple-600 dark:text-purple-400" /> Interest Rate
+              </span>
+
+              {/* Annual selected by default */}
+              <div className="inline-flex p-1 bg-slate-100 dark:bg-slate-950 rounded-xl border border-slate-200 dark:border-slate-800">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setFullState({
+                      rateType: 'annual',
+                      interestRate: rateType === 'monthly' ? Number((interestRate * 12).toFixed(2)) : interestRate,
+                    })
+                  }
+                  className={`px-3 py-1 text-xs font-bold rounded-lg transition-all ${
+                    rateType === 'annual' ? 'bg-purple-600 text-white shadow-sm' : 'text-slate-500 dark:text-slate-400'
+                  }`}
+                >
+                  Yearly (% p.a.)
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setFullState({
+                      rateType: 'monthly',
+                      interestRate: rateType === 'annual' ? Number((interestRate / 12).toFixed(2)) : interestRate,
+                    })
+                  }
+                  className={`px-3 py-1 text-xs font-bold rounded-lg transition-all ${
+                    rateType === 'monthly' ? 'bg-purple-600 text-white shadow-sm' : 'text-slate-500 dark:text-slate-400'
+                  }`}
+                >
+                  Monthly (% / mo)
+                </button>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between gap-3 bg-slate-50 dark:bg-slate-950 p-3 sm:p-4 rounded-2xl border border-slate-200 dark:border-slate-800 focus-within:border-purple-500 transition-colors">
+              <button
+                type="button"
+                onClick={() => stepRate(-0.25)}
+                className="w-10 h-10 rounded-xl bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 active:scale-95 text-slate-900 dark:text-white font-bold flex items-center justify-center transition-all shrink-0"
+              >
+                <Minus className="w-5 h-5" />
+              </button>
+
+              <div className="flex flex-col items-center justify-center flex-1">
+                <div className="flex items-center justify-center">
+                  <input
+                    type="number"
+                    step="0.05"
+                    inputMode="decimal"
+                    min={0.1}
+                    max={50}
+                    value={interestRate === 0 ? '' : interestRate}
+                    onChange={(e) => updateInput('interestRate', e.target.value === '' ? 0 : parseFloat(e.target.value))}
+                    className="w-24 bg-transparent text-center font-black text-2xl sm:text-3xl text-slate-900 dark:text-white outline-none border-none p-0 focus:ring-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    placeholder="14"
+                  />
+                  <span className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white ml-0.5">%</span>
+                </div>
+                <span className="text-[10px] text-slate-500 font-medium">
+                  {rateType === 'annual' ? 'Per Annum (p.a.)' : 'Per Month'}
+                </span>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => stepRate(0.25)}
+                className="w-10 h-10 rounded-xl bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 active:scale-95 text-slate-900 dark:text-white font-bold flex items-center justify-center transition-all shrink-0"
+              >
+                <Plus className="w-5 h-5" />
+              </button>
+            </div>
+
+            <input
+              type="range"
+              min={rateType === 'monthly' ? 0.1 : 1.0}
+              max={rateType === 'monthly' ? 3.0 : 36.0}
+              step={rateType === 'monthly' ? 0.05 : 0.25}
+              value={Math.min(interestRate, rateType === 'monthly' ? 3.0 : 36.0)}
+              onChange={(e) => updateInput('interestRate', Number(e.target.value))}
+              className="w-full h-2.5 bg-slate-200 dark:bg-slate-800 rounded-lg appearance-none cursor-pointer accent-purple-600"
+            />
+          </div>
+
+          {/* 3. TENURE */}
+          <div className="space-y-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+            <div className="flex items-center justify-between text-xs font-bold">
+              <span className="text-slate-700 dark:text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                <Clock className="w-4 h-4 text-purple-600 dark:text-purple-400" /> Tenure Duration
+              </span>
+
+              <div className="inline-flex p-1 bg-slate-100 dark:bg-slate-950 rounded-xl border border-slate-200 dark:border-slate-800">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setFullState({
+                      tenureType: 'years',
+                      tenureValue: tenureType === 'months' ? Math.max(1, Math.round(tenureValue / 12)) : tenureValue,
+                    })
+                  }
+                  className={`px-3 py-1 text-xs font-bold rounded-lg transition-all ${
+                    tenureType === 'years' ? 'bg-purple-600 text-white shadow-sm' : 'text-slate-500 dark:text-slate-400'
+                  }`}
+                >
+                  Years
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setFullState({
+                      tenureType: 'months',
+                      tenureValue: tenureType === 'years' ? tenureValue * 12 : tenureValue,
+                    })
+                  }
+                  className={`px-3 py-1 text-xs font-bold rounded-lg transition-all ${
+                    tenureType === 'months' ? 'bg-purple-600 text-white shadow-sm' : 'text-slate-500 dark:text-slate-400'
+                  }`}
+                >
+                  Months
+                </button>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between gap-3 bg-slate-50 dark:bg-slate-950 p-3 sm:p-4 rounded-2xl border border-slate-200 dark:border-slate-800 focus-within:border-purple-500 transition-colors">
+              <button
+                type="button"
+                onClick={() => stepTenure(-1)}
+                className="w-10 h-10 rounded-xl bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 active:scale-95 text-slate-900 dark:text-white font-bold flex items-center justify-center transition-all shrink-0"
+              >
+                <Minus className="w-5 h-5" />
+              </button>
+
+              <div className="flex flex-col items-center justify-center flex-1">
+                <div className="flex items-center justify-center">
+                  <input
+                    type="number"
+                    inputMode="numeric"
+                    min={1}
+                    max={480}
+                    value={tenureValue === 0 ? '' : tenureValue}
+                    onChange={(e) => updateInput('tenureValue', e.target.value === '' ? 1 : Number(e.target.value))}
+                    className="w-20 bg-transparent text-center font-black text-2xl sm:text-3xl text-slate-900 dark:text-white outline-none border-none p-0 focus:ring-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    placeholder="1"
+                  />
+                  <span className="text-sm font-semibold text-slate-500 ml-1">
+                    {tenureType === 'years' ? (tenureValue === 1 ? 'Year' : 'Years') : 'Months'}
+                  </span>
+                </div>
+                <span className="text-[10px] text-purple-600 dark:text-purple-400 font-bold">
+                  {tenureType === 'years' ? `${tenureValue * 12} total EMIs` : `${tenureValue} total EMIs`}
+                </span>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => stepTenure(1)}
+                className="w-10 h-10 rounded-xl bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 active:scale-95 text-slate-900 dark:text-white font-bold flex items-center justify-center transition-all shrink-0"
+              >
+                <Plus className="w-5 h-5" />
+              </button>
+            </div>
+
+            <input
+              type="range"
+              min={tenureType === 'years' ? 1 : 3}
+              max={tenureType === 'years' ? 30 : 360}
+              step={1}
+              value={Math.min(tenureValue, tenureType === 'years' ? 30 : 360)}
+              onChange={(e) => updateInput('tenureValue', Number(e.target.value))}
+              className="w-full h-2.5 bg-slate-200 dark:bg-slate-800 rounded-lg appearance-none cursor-pointer accent-purple-600"
+            />
+          </div>
+        </div>
+
+        {/* RATE SENSITIVITY TABLE */}
+        <div className="bg-white dark:bg-slate-900 rounded-3xl p-5 sm:p-7 shadow-sm border border-slate-200/80 dark:border-slate-800 space-y-4">
           <div className="flex items-center justify-between">
             <div>
               <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
                 <TrendingUp className="w-5 h-5 text-purple-600 dark:text-purple-400" />
-                <span>Interest Rate Fluctuation Impact (Sensitivity Analysis)</span>
+                <span>Interest Sensitivity Matrix</span>
               </h3>
-              <p className="text-xs text-slate-500">
-                See how a ±0.25% or ±0.50% change in rate alters your monthly EMI
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Live comparison showing how ±0.25% to ±1.00% changes affect your exact repayment.
               </p>
             </div>
           </div>
 
           <div className="overflow-x-auto rounded-2xl border border-slate-200/80 dark:border-slate-800">
             <table className="w-full text-left text-xs sm:text-sm">
-              <thead className="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold uppercase tracking-wider text-[11px]">
+              <thead className="bg-slate-100 dark:bg-slate-800/80 text-slate-700 dark:text-slate-300 font-bold uppercase tracking-wider text-[11px]">
                 <tr>
-                  <th className="py-3 px-4">Rate ({inputs.rateType === 'monthly' ? 'Monthly' : 'Annual'})</th>
+                  <th className="py-3 px-4">Rate Scenario</th>
                   <th className="py-3 px-4 text-right">Monthly EMI</th>
-                  <th className="py-3 px-4 text-right">EMI Difference</th>
+                  <th className="py-3 px-4 text-right">EMI Impact</th>
                   <th className="py-3 px-4 text-right">Total Interest</th>
                   <th className="py-3 px-4 text-right">Total Payable</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-medium">
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80 font-medium">
                 {sensitivityRows.map((row, idx) => {
-                  const isBase = Math.abs(row.ratePercent - inputs.interestRate) < 0.01;
+                  const isBase = Math.abs(row.ratePercent - interestRate) < 0.01;
                   return (
                     <tr
                       key={idx}
-                      className={isBase ? 'bg-purple-50 dark:bg-purple-950/40 font-bold' : 'hover:bg-slate-50'}
+                      className={
+                        isBase
+                          ? 'bg-purple-50 dark:bg-purple-950/40 font-bold text-purple-900 dark:text-purple-200'
+                          : 'hover:bg-slate-50 dark:hover:bg-slate-800/30'
+                      }
                     >
-                      <td className="py-3 px-4">
-                        <span className="font-extrabold">{row.ratePercent}%</span>
-                        {isBase && <span className="ml-2 px-2 py-0.5 text-[10px] bg-purple-600 text-white rounded-full">Current Rate</span>}
+                      <td className="py-3.5 px-4">
+                        <div className="flex items-center gap-2">
+                          <span className="font-extrabold text-sm">{row.ratePercent}%</span>
+                          {isBase && (
+                            <span className="px-2 py-0.5 text-[10px] bg-purple-600 text-white rounded-md font-bold">
+                              Current Rate
+                            </span>
+                          )}
+                        </div>
                       </td>
-                      <td className="py-3 px-4 text-right font-extrabold text-blue-600 dark:text-blue-400">
+                      <td className="py-3.5 px-4 text-right font-black text-purple-600 dark:text-purple-400">
                         {formatINR(row.emi)}
                       </td>
-                      <td className="py-3 px-4 text-right font-semibold">
-                        {row.differenceFromBaseEMI === 0
-                          ? 'Base'
-                          : row.differenceFromBaseEMI > 0
-                          ? `+${formatINR(row.differenceFromBaseEMI)}`
-                          : formatINR(row.differenceFromBaseEMI)}
+                      <td className="py-3.5 px-4 text-right">
+                        {row.differenceFromBaseEMI === 0 ? (
+                          <span className="text-slate-400 font-semibold">—</span>
+                        ) : row.differenceFromBaseEMI > 0 ? (
+                          <span className="text-rose-500 font-bold flex items-center justify-end gap-0.5">
+                            <ArrowUpRight className="w-3.5 h-3.5" /> +{formatINR(row.differenceFromBaseEMI)}
+                          </span>
+                        ) : (
+                          <span className="text-emerald-500 font-bold flex items-center justify-end gap-0.5">
+                            <ArrowDownRight className="w-3.5 h-3.5" /> {formatINR(row.differenceFromBaseEMI)}
+                          </span>
+                        )}
                       </td>
-                      <td className="py-3 px-4 text-right text-rose-500">{formatINR(row.totalInterest)}</td>
-                      <td className="py-3 px-4 text-right font-semibold">{formatINR(row.totalPayable)}</td>
+                      <td className="py-3.5 px-4 text-right text-rose-500 font-semibold">
+                        {formatINR(row.totalInterest)}
+                      </td>
+                      <td className="py-3.5 px-4 text-right font-bold text-slate-900 dark:text-slate-100">
+                        {formatINR(row.totalPayable)}
+                      </td>
                     </tr>
                   );
                 })}

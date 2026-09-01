@@ -11,15 +11,18 @@ interface PaymentDistributionProps {
 }
 
 export const PaymentDistribution: React.FC<PaymentDistributionProps> = ({ calculation }) => {
-  const { loanAmount, totalInterest, totalCharges, totalCost } = calculation;
+  const { loanAmount, totalInterest } = calculation;
 
+  // Pure 2-way total (Principal + Interest only)
+  const totalPayable = loanAmount + totalInterest;
+
+  // Chart Data - Additional Charges permanently removed
   const data = [
     { name: 'Principal', value: loanAmount, color: '#2563EB' },
     { name: 'Interest', value: totalInterest, color: '#F43F5E' },
-    { name: 'Additional Charges', value: totalCharges, color: '#F59E0B' },
   ].filter((item) => item.value > 0);
 
-  const compactTotal = formatINRCompact(totalCost);
+  const compactTotal = formatINRCompact(totalPayable);
 
   return (
     <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 sm:p-7 shadow-sm border border-slate-200/80 dark:border-slate-800 space-y-4">
@@ -81,10 +84,10 @@ export const PaymentDistribution: React.FC<PaymentDistributionProps> = ({ calcul
           </div>
         </div>
 
-        {/* Dynamic Legend */}
+        {/* Dynamic Legend (Principal & Interest Only) */}
         <div className="w-full md:w-auto flex-1 space-y-3">
           {data.map((item) => {
-            const percentage = totalCost > 0 ? ((item.value / totalCost) * 100).toFixed(1) : '0';
+            const percentage = totalPayable > 0 ? ((item.value / totalPayable) * 100).toFixed(1) : '0';
             return (
               <div
                 key={item.name}
