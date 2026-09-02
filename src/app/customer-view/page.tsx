@@ -10,9 +10,6 @@ import {
   Sparkles,
   ShieldCheck,
   Receipt,
-  SlidersHorizontal,
-  ChevronDown,
-  ChevronUp,
   IndianRupee,
   Percent,
   Calendar,
@@ -20,14 +17,13 @@ import {
 
 export default function CustomerViewPage() {
   const { inputs, updateInput } = useLoanCalculator();
-  const [showControls, setShowControls] = useState<boolean>(false);
   const [activeSlice, setActiveSlice] = useState<'all' | 'loan' | 'charges' | 'interest'>('all');
 
   // Direct editable charges state for Customer View
   const [processingFeePercent, setProcessingFeePercent] = useState<number>(2.5);
   const [otherCharges, setOtherCharges] = useState<number>(0);
 
-  const { loanAmount, interestRate, rateType, tenureValue, tenureType } = inputs;
+  const { loanAmount, interestRate, tenureValue, tenureType } = inputs;
 
   // Real-time Capitalized Math controlled right from this page
   const processingFeeAmount = Math.round(((loanAmount || 0) * (processingFeePercent || 0)) / 100);
@@ -35,7 +31,8 @@ export default function CustomerViewPage() {
   const financedPrincipal = (loanAmount || 0) + totalUpfrontCharges;
 
   const totalMonths = tenureType === 'years' ? (tenureValue || 1) * 12 : (tenureValue || 1);
-  const annualRatePercent = rateType === 'monthly' ? (interestRate || 0) * 12 : (interestRate || 0);
+  // Pure annual rate calculation
+  const annualRatePercent = interestRate || 0;
   const monthlyRateDecimal = annualRatePercent / 12 / 100;
 
   // Exact live EMI & interest calculation
@@ -87,162 +84,21 @@ export default function CustomerViewPage() {
             Customer Loan Quote
           </span>
 
-          <div className="flex items-center gap-1.5">
-            <button
-              type="button"
-              onClick={() => setShowControls(!showControls)}
-              className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-300 flex items-center gap-1 border border-slate-700 transition-colors"
-            >
-              <SlidersHorizontal className="w-3 h-3 text-blue-400" />
-              <span>{showControls ? 'Close' : 'Edit'}</span>
-              {showControls ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-            </button>
-
-            <button
-              type="button"
-              onClick={() => window.print()}
-              className="px-2.5 py-1 rounded-lg bg-blue-600 hover:bg-blue-500 text-xs font-bold text-white flex items-center gap-1 shadow transition-colors"
-            >
-              <Printer className="w-3 h-3" />
-              <span>Print</span>
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={() => window.print()}
+            className="px-2.5 py-1 rounded-lg bg-blue-600 hover:bg-blue-500 text-xs font-bold text-white flex items-center gap-1 shadow transition-colors"
+          >
+            <Printer className="w-3 h-3" />
+            <span>Print</span>
+          </button>
         </div>
       </header>
 
       {/* 2. MAIN CONTAINER */}
       <main className="max-w-md mx-auto px-4 pt-3 space-y-3">
         
-        {/* COLLAPSIBLE LIVE CONTROLS (DIRECTLY CONTROLS CHARGES & RATES) */}
-        {showControls && (
-          <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-3.5 space-y-3 animate-in fade-in duration-200">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
-                Adjust Quote & Charges Directly
-              </span>
-              <span className="text-[10px] text-blue-400 font-bold">Live Updates</span>
-            </div>
-
-            {/* Row 1: Loan Principal & Interest Rate */}
-            <div className="grid grid-cols-2 gap-2">
-              <div className="space-y-1">
-                <span className="text-[11px] font-semibold text-slate-400 flex items-center gap-1">
-                  <IndianRupee className="w-3 h-3 text-blue-400" />
-                  Loan Amount
-                </span>
-                <div className="flex items-center bg-slate-950 px-2.5 py-1.5 rounded-xl border border-slate-800 focus-within:border-blue-500">
-                  <span className="text-xs text-slate-500 mr-1">₹</span>
-                  <input
-                    type="number"
-                    inputMode="numeric"
-                    value={loanAmount === 0 ? '' : loanAmount}
-                    onChange={(e) => updateInput('loanAmount', e.target.value === '' ? 0 : Number(e.target.value))}
-                    className="w-full bg-transparent font-bold text-sm text-white outline-none border-none p-0 focus:ring-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                    placeholder="500000"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-1">
-                <div className="flex justify-between items-center text-[11px] font-semibold text-slate-400">
-                  <span className="flex items-center gap-1">
-                    <Percent className="w-3 h-3 text-blue-400" />
-                    Interest Rate
-                  </span>
-                  <span className="text-blue-400 text-[10px]">{rateType === 'annual' ? 'p.a.' : '/mo'}</span>
-                </div>
-                <div className="flex items-center bg-slate-950 px-2.5 py-1.5 rounded-xl border border-slate-800 focus-within:border-blue-500">
-                  <input
-                    type="number"
-                    step="0.1"
-                    inputMode="decimal"
-                    value={interestRate === 0 ? '' : interestRate}
-                    onChange={(e) => updateInput('interestRate', e.target.value === '' ? 0 : parseFloat(e.target.value))}
-                    className="w-full bg-transparent font-bold text-sm text-white outline-none border-none p-0 focus:ring-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                    placeholder="14"
-                  />
-                  <span className="text-xs text-slate-500 ml-1">%</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Row 2: Direct Charges Controls (Controlled right here) */}
-            <div className="pt-2 border-t border-slate-800/80 space-y-1.5">
-              <div className="flex justify-between items-center text-[11px] font-semibold text-slate-400">
-                <span className="flex items-center gap-1">
-                  <Receipt className="w-3 h-3 text-rose-400" />
-                  Processing & Extra Charges
-                </span>
-                <span className="text-rose-400 font-bold">+{formatINR(totalUpfrontCharges)}</span>
-              </div>
-
-              <div className="grid grid-cols-2 gap-2">
-                <div className="space-y-0.5">
-                  <div className="flex justify-between text-[10px] text-slate-400">
-                    <span>Processing Fee</span>
-                    <span className="text-amber-400 font-semibold">{formatINR(processingFeeAmount)}</span>
-                  </div>
-                  <div className="flex items-center bg-slate-950 px-2.5 py-1.5 rounded-xl border border-slate-800 focus-within:border-blue-500">
-                    <input
-                      type="number"
-                      step="0.1"
-                      inputMode="decimal"
-                      value={processingFeePercent === 0 ? '' : processingFeePercent}
-                      onChange={(e) => setProcessingFeePercent(e.target.value === '' ? 0 : parseFloat(e.target.value))}
-                      className="w-full bg-transparent font-bold text-sm text-white outline-none border-none p-0 focus:ring-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                      placeholder="2.5"
-                    />
-                    <span className="text-xs text-slate-500 ml-1">%</span>
-                  </div>
-                </div>
-
-                <div className="space-y-0.5">
-                  <div className="flex justify-between text-[10px] text-slate-400">
-                    <span>Other Charges</span>
-                    <span className="text-slate-300 font-semibold">{otherCharges === 0 ? '₹0' : formatINR(otherCharges)}</span>
-                  </div>
-                  <div className="flex items-center bg-slate-950 px-2.5 py-1.5 rounded-xl border border-slate-800 focus-within:border-blue-500">
-                    <span className="text-xs text-slate-500 mr-1">₹</span>
-                    <input
-                      type="number"
-                      inputMode="numeric"
-                      value={otherCharges === 0 ? '' : otherCharges}
-                      onChange={(e) => setOtherCharges(e.target.value === '' ? 0 : Number(e.target.value))}
-                      className="w-full bg-transparent font-bold text-sm text-white outline-none border-none p-0 focus:ring-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                      placeholder="0"
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Row 3: Tenure Duration */}
-            <div className="space-y-1 pt-2 border-t border-slate-800/80">
-              <div className="flex justify-between items-center text-[11px] font-semibold text-slate-400">
-                <span className="flex items-center gap-1">
-                  <Calendar className="w-3 h-3 text-blue-400" />
-                  Tenure Duration
-                </span>
-                <span className="text-blue-400 text-[10px]">{totalMonths} EMIs</span>
-              </div>
-              <div className="flex items-center bg-slate-950 px-2.5 py-1.5 rounded-xl border border-slate-800 focus-within:border-blue-500">
-                <input
-                  type="number"
-                  inputMode="numeric"
-                  value={tenureValue === 0 ? '' : tenureValue}
-                  onChange={(e) => updateInput('tenureValue', e.target.value === '' ? 0 : Number(e.target.value))}
-                  className="w-full bg-transparent font-bold text-sm text-white outline-none border-none p-0 focus:ring-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                  placeholder="5"
-                />
-                <span className="text-xs text-slate-500 ml-1">
-                  {tenureType === 'years' ? 'Years' : 'Months'}
-                </span>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* 3. HERO RESULT CARD */}
+        {/* HERO RESULT CARD */}
         <div className="rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-700 p-5 text-center shadow-xl border border-white/15">
           <div className="flex items-center justify-center gap-1.5 text-blue-100 text-[11px] font-bold uppercase tracking-wider mb-1">
             <Sparkles className="w-3.5 h-3.5 text-amber-300" />
@@ -255,7 +111,7 @@ export default function CustomerViewPage() {
           </div>
 
           <p className="text-xs font-semibold text-blue-200 mt-1">
-            {tenureType === 'years' ? `${tenureValue} Years` : `${tenureValue} Months`} ({totalMonths} EMIs) @ {interestRate}% {rateType === 'annual' ? 'p.a.' : '/mo'}
+            {tenureType === 'years' ? `${tenureValue} Years` : `${tenureValue} Months`} ({totalMonths} EMIs) @ {annualRatePercent}% p.a.
           </p>
 
           <div className="grid grid-cols-3 gap-2 mt-3.5 pt-3 border-t border-white/20 text-left text-xs">
@@ -274,45 +130,132 @@ export default function CustomerViewPage() {
           </div>
         </div>
 
-        {/* 4. REPAYMENT TERMS */}
-        <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-3.5 space-y-2.5">
-          <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
-            Loan Cost Structure
-          </span>
-
-          <div className="space-y-2 text-xs">
-            <div className="flex items-center justify-between pb-1.5 border-b border-slate-800/80">
-              <div>
-                <span className="text-slate-300 block font-medium">Principal Loan</span>
-                <span className="text-[10px] text-blue-400 font-bold">{loanShare}% of total cost</span>
+        {/* DIRECT INLINE INPUTS */}
+        <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-3.5 space-y-3">
+          
+          {/* Row 1: Loan Principal & Annual Interest Rate */}
+          <div className="grid grid-cols-2 gap-2">
+            <div className="space-y-1">
+              <div className="flex justify-between items-center text-xs">
+                <span className="text-slate-300 font-semibold flex items-center gap-1">
+                  <IndianRupee className="w-3.5 h-3.5 text-blue-400" />
+                  Loan (₹)
+                </span>
+                <span className="text-blue-400 font-bold text-[11px]">{formatINRCompact(loanAmount || 0)}</span>
               </div>
-              <span className="font-bold text-white text-sm">{formatINR(loanAmount)}</span>
+              <div className="flex items-center bg-slate-950 px-2.5 py-1.5 rounded-xl border border-slate-800 focus-within:border-blue-500">
+                <span className="text-xs text-slate-500 mr-1">₹</span>
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  value={loanAmount === 0 ? '' : loanAmount}
+                  onChange={(e) => updateInput('loanAmount', e.target.value === '' ? 0 : Number(e.target.value))}
+                  className="w-full bg-transparent font-bold text-sm text-white outline-none border-none p-0 focus:ring-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                  placeholder="500000"
+                />
+              </div>
             </div>
 
-            <div className="flex items-center justify-between pb-1.5 border-b border-slate-800/80">
-              <div>
-                <span className="text-slate-300 block font-medium">Total Interest ({interestRate}%)</span>
-                <span className="text-[10px] text-amber-400 font-bold">{interestShare}% of total cost</span>
+            <div className="space-y-1">
+              <div className="flex justify-between items-center text-xs">
+                <span className="text-slate-300 font-semibold flex items-center gap-1">
+                  <Percent className="w-3.5 h-3.5 text-blue-400" />
+                  Annual Interest
+                </span>
+                <span className="text-blue-400 text-[10px] font-bold">% p.a.</span>
               </div>
-              <span className="font-bold text-amber-400 text-sm">+{formatINR(totalInterest)}</span>
-            </div>
-
-            <div className="flex items-center justify-between pb-1.5 border-b border-slate-800/80">
-              <div>
-                <span className="text-slate-300 block font-medium">Upfront Charges ({processingFeePercent}%)</span>
-                <span className="text-[10px] text-rose-400 font-bold">{chargesShare}% of total cost</span>
+              <div className="flex items-center bg-slate-950 px-2.5 py-1.5 rounded-xl border border-slate-800 focus-within:border-blue-500">
+                <input
+                  type="number"
+                  step="0.1"
+                  inputMode="decimal"
+                  value={interestRate === 0 ? '' : interestRate}
+                  onChange={(e) => updateInput('interestRate', e.target.value === '' ? 0 : parseFloat(e.target.value))}
+                  className="w-full bg-transparent font-bold text-sm text-white outline-none border-none p-0 focus:ring-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                  placeholder="14"
+                />
+                <span className="text-xs text-slate-500 ml-1">% p.a.</span>
               </div>
-              <span className="font-bold text-rose-400 text-sm">+{formatINR(totalUpfrontCharges)}</span>
-            </div>
-
-            <div className="flex items-center justify-between pt-0.5">
-              <span className="text-slate-400 font-medium">Net Total Payable (100%)</span>
-              <span className="font-black text-white text-base">{formatINR(totalOutflow)}</span>
             </div>
           </div>
+
+          {/* Row 2: Extra Charges Controls */}
+          <div className="pt-2 border-t border-slate-800/80 space-y-1.5">
+            <div className="flex justify-between items-center text-xs">
+              <span className="text-slate-300 font-semibold flex items-center gap-1">
+                <Receipt className="w-3.5 h-3.5 text-rose-400" />
+                Processing & Extra Charges
+              </span>
+              <span className="text-rose-400 font-bold">+{formatINR(totalUpfrontCharges)}</span>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-0.5">
+                <div className="flex justify-between text-[10px] text-slate-400">
+                  <span>Processing Fee</span>
+                  <span className="text-amber-400 font-semibold">{formatINR(processingFeeAmount)}</span>
+                </div>
+                <div className="flex items-center bg-slate-950 px-2.5 py-1.5 rounded-xl border border-slate-800 focus-within:border-blue-500">
+                  <input
+                    type="number"
+                    step="0.1"
+                    inputMode="decimal"
+                    value={processingFeePercent === 0 ? '' : processingFeePercent}
+                    onChange={(e) => setProcessingFeePercent(e.target.value === '' ? 0 : parseFloat(e.target.value))}
+                    className="w-full bg-transparent font-bold text-sm text-white outline-none border-none p-0 focus:ring-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    placeholder="2.5"
+                  />
+                  <span className="text-xs text-slate-500 ml-1">%</span>
+                </div>
+              </div>
+
+              <div className="space-y-0.5">
+                <div className="flex justify-between text-[10px] text-slate-400">
+                  <span>Other Charges</span>
+                  <span className="text-slate-300 font-semibold">{otherCharges === 0 ? '₹0' : formatINR(otherCharges)}</span>
+                </div>
+                <div className="flex items-center bg-slate-950 px-2.5 py-1.5 rounded-xl border border-slate-800 focus-within:border-blue-500">
+                  <span className="text-xs text-slate-500 mr-1">₹</span>
+                  <input
+                    type="number"
+                    inputMode="numeric"
+                    value={otherCharges === 0 ? '' : otherCharges}
+                    onChange={(e) => setOtherCharges(e.target.value === '' ? 0 : Number(e.target.value))}
+                    className="w-full bg-transparent font-bold text-sm text-white outline-none border-none p-0 focus:ring-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    placeholder="0"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Row 3: Tenure Duration */}
+          <div className="space-y-1 pt-2 border-t border-slate-800/80">
+            <div className="flex justify-between items-center text-xs">
+              <span className="text-slate-300 font-semibold flex items-center gap-1">
+                <Calendar className="w-3.5 h-3.5 text-blue-400" />
+                Tenure Duration
+              </span>
+              <span className="text-blue-400 text-[10px] font-bold">{totalMonths} Total EMIs</span>
+            </div>
+            <div className="flex items-center bg-slate-950 px-2.5 py-1.5 rounded-xl border border-slate-800 focus-within:border-blue-500">
+              <input
+                type="number"
+                inputMode="numeric"
+                value={tenureValue === 0 ? '' : tenureValue}
+                onChange={(e) => updateInput('tenureValue', e.target.value === '' ? 0 : Number(e.target.value))}
+                className="w-full bg-transparent font-bold text-sm text-white outline-none border-none p-0 focus:ring-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                placeholder="5"
+              />
+              <span className="text-xs text-slate-500 ml-1">
+                {tenureType === 'years' ? 'Years' : 'Months'}
+              </span>
+            </div>
+          </div>
+
         </div>
 
-        {/* 5. CLICKABLE 1:1 DONUT CHART */}
+        {/* CLICKABLE 1:1 DONUT CHART & PERCENTAGE CARDS */}
         <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-3.5 space-y-3">
           <div className="flex items-center justify-between text-xs font-bold">
             <span className="text-slate-300 uppercase tracking-wider text-[11px]">
@@ -488,7 +431,7 @@ export default function CustomerViewPage() {
           </div>
         </div>
 
-        {/* 6. TRUST FOOTER */}
+        {/* TRUST FOOTER */}
         <div className="p-2.5 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-center gap-1.5 text-[11px] text-slate-400">
           <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
           <span>Interactive quote: Adjust inputs directly to recalculate instantly.</span>
