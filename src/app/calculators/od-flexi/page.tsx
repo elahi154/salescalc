@@ -1,26 +1,30 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { Navbar } from '@/components/layout/Navbar';
-import { Footer } from '@/components/layout/Footer';
+import Link from 'next/link';
 import { formatINR, formatINRCompact } from '@/lib/calculations/formatting';
 import {
-  RefreshCw,
+  ArrowLeft,
+  Sparkles,
   IndianRupee,
   Percent,
-  Plus,
-  Minus,
-  Sparkles,
-  Info,
   Wallet,
+  CheckCircle2,
+  PieChart as PieIcon,
+  Receipt,
+  AlertCircle,
 } from 'lucide-react';
 
 export default function ODFlexiCalculatorPage() {
-  // Input states (Defaults: ₹10L Limit, ₹4L Utilized, 12% p.a. Yearly by default)
+  // Input states (Default: ₹10L Limit, ₹0 Utilized, 12% p.a. Yearly)
   const [sanctionedLimit, setSanctionedLimit] = useState<number>(1000000);
-  const [utilizedAmount, setUtilizedAmount] = useState<number>(400000);
-  const [interestRate, setInterestRate] = useState<number>(12.0); // 12% p.a. default
-  const [rateType, setRateType] = useState<'monthly' | 'annual'>('annual'); // Yearly selected by default
+  const [utilizedAmount, setUtilizedAmount] = useState<number>(0); // Initially ₹0 used
+  const [interestRate, setInterestRate] = useState<number>(12.0);
+  const [rateType, setRateType] = useState<'monthly' | 'annual'>('annual');
+
+  // Independent Facility Charges (Lagte hi lagte hain chahe usage 0 ho)
+  const [processingFeePercent, setProcessingFeePercent] = useState<number>(1.5);
+  const [annualMaintenanceFee, setAnnualMaintenanceFee] = useState<number>(1000);
 
   // Exact OD / Flexi Math
   const calculation = useMemo(() => {
@@ -28,433 +32,438 @@ export default function ODFlexiCalculatorPage() {
     const utilized = Math.min(limit, utilizedAmount || 0);
     const unutilized = Math.max(0, limit - utilized);
 
+    // Fixed facility charges calculated on total approved line
+    const upfrontProcessingFee = Math.round((limit * (processingFeePercent || 0)) / 100);
+    const totalSetupCharges = upfrontProcessingFee + (annualMaintenanceFee || 0);
+
+    // Interest rate conversion
     const monthlyRateDecimal = rateType === 'monthly'
       ? (interestRate || 0) / 100
       : ((interestRate || 0) / 12) / 100;
 
-    const annualRatePercent = rateType === 'monthly'
-      ? (interestRate || 0) * 12
-      : (interestRate || 0);
-
+    // Monthly interest (Strictly ₹0 agar utilized = 0)
     const monthlyInterest = Math.round(utilized * monthlyRateDecimal);
     const dailyInterest = Math.round(monthlyInterest / 30);
     const annualInterest = Math.round(monthlyInterest * 12);
-    const utilizationPercent = limit > 0 ? Math.round((utilized / limit) * 100) : 0;
-    const unutilizedPercent = 100 - utilizationPercent;
+
+    const utilizationPercent = limit > 0 ? Number(((utilized / limit) * 100).toFixed(1)) : 0;
+    const unutilizedPercent = limit > 0 ? Number((100 - utilizationPercent).toFixed(1)) : 100;
 
     return {
       limit,
       utilized,
       unutilized,
+      upfrontProcessingFee,
+      totalSetupCharges,
       monthlyInterest,
       dailyInterest,
       annualInterest,
-      annualRatePercent,
       utilizationPercent,
       unutilizedPercent,
     };
-  }, [sanctionedLimit, utilizedAmount, interestRate, rateType]);
+  }, [sanctionedLimit, utilizedAmount, interestRate, rateType, processingFeePercent, annualMaintenanceFee]);
 
-  // Steppers
-  const stepLimit = (delta: number) => {
-    const next = Math.max(10000, sanctionedLimit + delta);
-    setSanctionedLimit(next);
-    if (utilizedAmount > next) {
-      setUtilizedAmount(next);
-    }
-  };
-
-  const stepUtilized = (delta: number) => {
-    const next = Math.max(0, Math.min(sanctionedLimit, utilizedAmount + delta));
-    setUtilizedAmount(next);
-  };
-
-  const stepRate = (delta: number) => {
-    const step = rateType === 'monthly' ? 0.05 : 0.25;
-    const max = rateType === 'monthly' ? 5.0 : 40.0;
-    const next = Math.max(0.05, Math.min(max, Number((interestRate + delta * (step / 0.1)).toFixed(2))));
-    setInterestRate(next);
-  };
-
-  const limitPresets = [
-    { label: '₹2L', val: 200000 },
-    { label: '₹5L', val: 500000 },
-    { label: '₹10L', val: 1000000 },
-    { label: '₹25L', val: 2500000 },
-    { label: '₹50L', val: 5000000 },
-  ];
+  // Donut SVG parameters
+  const radius = 38;
+  const circumference = 2 * Math.PI * radius;
+  const utilizedOffset = 0;
+  const unutilizedOffset = (calculation.utilizationPercent / 100) * circumference;
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-50 dark:bg-slate-950 transition-colors text-slate-900 dark:text-white">
-      <Navbar />
+    <div className="min-h-screen bg-[#070A12] text-white font-sans selection:bg-blue-600 selection:text-white pb-20">
+      
+      {/* 1. TOP HEADER */}
+      <header className="px-4 py-3 border-b border-slate-800 bg-[#070A12]/95 backdrop-blur-md sticky top-0 z-30">
+        <div className="max-w-md mx-auto flex items-center justify-between">
+          <Link 
+            href="/" 
+            className="flex items-center gap-1.5 text-xs font-semibold text-slate-400 hover:text-white transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span>Back</span>
+          </Link>
 
-      <main className="flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 space-y-8">
+          <span className="text-sm font-bold text-slate-200">
+            OD / Flexi Calculator
+          </span>
+
+          <span className="w-10" />
+        </div>
+      </header>
+
+      {/* 2. MAIN CONTAINER */}
+      <main className="max-w-md mx-auto px-4 pt-3 space-y-3">
         
-        {/* HEADER */}
-        <div className="text-center max-w-2xl mx-auto space-y-2">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-cyan-50 dark:bg-cyan-950/60 text-cyan-700 dark:text-cyan-300 text-xs font-bold uppercase tracking-wider border border-cyan-200 dark:border-cyan-800">
-            <RefreshCw className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
-            <span>Overdraft & Flexi Interest Suite</span>
-          </div>
-
-          <h1 className="text-3xl sm:text-4xl font-black tracking-tight">
-            OD / Flexi Loan Calculator
-          </h1>
-
-          <p className="text-sm sm:text-base text-slate-600 dark:text-slate-400 font-medium">
-            Calculate interest strictly on your utilized credit line with ₹0 charge on unutilized funds.
-          </p>
-        </div>
-
-        {/* 1. HERO OD INTEREST RESULT CARD */}
-        <div className="rounded-3xl bg-gradient-to-br from-cyan-600 via-teal-700 to-slate-900 text-white p-6 sm:p-8 shadow-2xl border border-cyan-500/30 space-y-6">
-          <div className="flex items-center justify-between text-cyan-100 text-xs font-bold uppercase tracking-wider">
-            <span className="flex items-center gap-1.5">
-              <Sparkles className="w-4 h-4 text-amber-300" />
-              <span>Your Estimated OD Interest Bill</span>
-            </span>
-            <span className="text-[11px] bg-black/20 px-2.5 py-1 rounded-full border border-white/10">
-              Daily Amortized Math
+        {/* HERO CARD: LIVE INTEREST & FIXED CHARGES STATUS */}
+        <div className="rounded-2xl bg-gradient-to-br from-cyan-600 to-teal-700 p-4 text-center shadow-lg border border-white/15">
+          <div className="flex items-center justify-center gap-1.5 text-cyan-100 text-[11px] font-bold uppercase tracking-wider mb-0.5">
+            <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+            <span>
+              {calculation.utilized === 0 ? 'Reserve Ready (No Interest)' : 'Monthly Interest Bill'}
             </span>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-center">
-            <div>
-              <span className="text-xs uppercase font-bold tracking-wider text-cyan-200 block">
-                Monthly Interest Due
+          <div className="text-3xl sm:text-4xl font-black text-white tracking-tight my-1">
+            {formatINR(calculation.monthlyInterest)}
+            <span className="text-xs font-normal text-cyan-200 ml-1">/ mo</span>
+          </div>
+
+          {calculation.utilized === 0 ? (
+            <p className="text-[11px] text-cyan-100 font-medium mt-0.5">
+              ₹0 interest charged because ₹0 is currently withdrawn
+            </p>
+          ) : (
+            <p className="text-[11px] text-cyan-100 font-medium mt-0.5">
+              ≈ {formatINR(calculation.dailyInterest)} / day on {formatINRCompact(calculation.utilized)} used
+            </p>
+          )}
+
+          {/* Sub-Pills showing Fixed Charges vs Usage */}
+          <div className="grid grid-cols-3 gap-2 mt-3 pt-2.5 border-t border-white/20 text-left text-xs">
+            <div className="bg-black/20 rounded-xl p-2 border border-white/5">
+              <span className="text-[10px] text-cyan-200 block truncate">Used Limit</span>
+              <span className="font-bold text-white text-xs block truncate">
+                {formatINRCompact(calculation.utilized)}
               </span>
-              <div className="text-4xl sm:text-5xl font-black text-white tracking-tight mt-0.5">
-                {formatINR(calculation.monthlyInterest)}
-                <span className="text-xs font-normal text-cyan-200 block sm:inline sm:ml-1.5">/ month</span>
-              </div>
-              <p className="text-xs text-cyan-200/90 mt-1.5 font-medium">
-                ≈ {formatINR(calculation.dailyInterest)} / day (Annual: {formatINRCompact(calculation.annualInterest)})
-              </p>
             </div>
-
-            {/* Visual Limit Utilization Bar */}
-            <div className="bg-black/25 backdrop-blur-md rounded-2xl p-4 border border-white/10 space-y-3">
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-cyan-200 font-medium">Credit Utilization</span>
-                <span className="font-extrabold text-white">{calculation.utilizationPercent}% Utilized</span>
-              </div>
-
-              <div className="w-full h-3 bg-white/10 rounded-full overflow-hidden flex">
-                <div
-                  style={{ width: `${calculation.utilizationPercent}%` }}
-                  className="h-full bg-amber-400 transition-all duration-300"
-                />
-                <div
-                  style={{ width: `${calculation.unutilizedPercent}%` }}
-                  className="h-full bg-emerald-400 transition-all duration-300"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-2 text-xs pt-1">
-                <div>
-                  <span className="text-[10px] text-amber-300 block font-bold">● Utilized (Interest Active)</span>
-                  <span className="font-extrabold text-white">{formatINRCompact(calculation.utilized)}</span>
-                </div>
-                <div>
-                  <span className="text-[10px] text-emerald-300 block font-bold">● Available (₹0 Interest)</span>
-                  <span className="font-extrabold text-white">{formatINRCompact(calculation.unutilized)}</span>
-                </div>
-              </div>
+            <div className="bg-black/20 rounded-xl p-2 border border-white/5">
+              <span className="text-[10px] text-cyan-200 block truncate">Interest Due</span>
+              <span className="font-bold text-amber-300 text-xs block truncate">
+                {calculation.monthlyInterest === 0 ? '₹0 / mo' : formatINR(calculation.monthlyInterest)}
+              </span>
+            </div>
+            <div className="bg-black/20 rounded-xl p-2 border border-white/5">
+              <span className="text-[10px] text-cyan-200 block truncate">Setup / AMC</span>
+              <span className="font-bold text-rose-300 text-xs block truncate">
+                +{formatINRCompact(calculation.totalSetupCharges)}
+              </span>
             </div>
           </div>
         </div>
 
-        {/* 2. DIRECT EDITABLE INPUT CONTROLS */}
-        <div className="bg-white dark:bg-slate-900 rounded-3xl p-5 sm:p-7 shadow-sm border border-slate-200/80 dark:border-slate-800 space-y-6">
+        {/* 3. DIRECT EDITABLE INPUT CONTROLS */}
+        <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-3.5 space-y-3">
           
-          <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
-            <h2 className="text-base font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-cyan-500" />
-              <span>Adjust Overdraft Parameters</span>
-            </h2>
-            <span className="text-xs text-slate-500 font-medium">Tap numbers to edit or use + / -</span>
-          </div>
-
-          {/* 1. SANCTIONED LIMIT */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between text-xs font-bold">
-              <span className="text-slate-700 dark:text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
-                <IndianRupee className="w-4 h-4 text-cyan-600 dark:text-cyan-400" /> Total Sanctioned Limit
-              </span>
-              <span className="text-cyan-600 dark:text-cyan-400 font-extrabold">({formatINRCompact(sanctionedLimit || 0)})</span>
+          {/* A. Sanctioned Limit */}
+          <div className="space-y-1.5">
+            <div className="flex justify-between items-center text-xs">
+              <label className="text-slate-300 font-semibold flex items-center gap-1">
+                <IndianRupee className="w-3.5 h-3.5 text-cyan-400" />
+                Sanctioned Overdraft Limit
+              </label>
+              <span className="text-cyan-400 font-bold">{formatINRCompact(sanctionedLimit || 0)}</span>
             </div>
 
-            <div className="flex items-center justify-between gap-3 bg-slate-50 dark:bg-slate-950 p-3 sm:p-4 rounded-2xl border border-slate-200 dark:border-slate-800 focus-within:border-cyan-500 transition-colors">
-              <button
-                type="button"
-                onClick={() => stepLimit(-50000)}
-                className="w-10 h-10 rounded-xl bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 active:scale-95 text-slate-900 dark:text-white font-bold flex items-center justify-center transition-all shrink-0"
-              >
-                <Minus className="w-5 h-5" />
-              </button>
+            <div className="flex items-center bg-slate-950 px-3 py-2 rounded-xl border border-slate-800 focus-within:border-cyan-500">
+              <span className="text-base font-bold text-slate-500 mr-2">₹</span>
+              <input
+                type="number"
+                inputMode="numeric"
+                value={sanctionedLimit === 0 ? '' : sanctionedLimit}
+                onChange={(e) => {
+                  const val = e.target.value === '' ? 0 : Number(e.target.value);
+                  setSanctionedLimit(val);
+                  if (utilizedAmount > val) setUtilizedAmount(val);
+                }}
+                className="w-full bg-transparent font-bold text-lg text-white outline-none border-none p-0 focus:ring-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                placeholder="1000000"
+              />
+            </div>
 
-              <div className="flex items-center justify-center flex-1">
-                <span className="text-2xl sm:text-3xl font-bold text-slate-400 mr-1">₹</span>
-                <input
-                  type="number"
-                  inputMode="numeric"
-                  min={10000}
-                  max={100000000}
-                  value={sanctionedLimit === 0 ? '' : sanctionedLimit}
-                  onChange={(e) => {
-                    const val = e.target.value === '' ? 0 : Number(e.target.value);
+            {/* Quick Limit Presets */}
+            <div className="flex gap-1.5 pt-0.5">
+              {[200000, 500000, 1000000, 2500000, 5000000].map((val) => (
+                <button
+                  key={val}
+                  type="button"
+                  onClick={() => {
                     setSanctionedLimit(val);
                     if (utilizedAmount > val) setUtilizedAmount(val);
                   }}
-                  className="w-full bg-transparent text-center font-black text-2xl sm:text-3xl text-slate-900 dark:text-white outline-none border-none p-0 focus:ring-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                  placeholder="0"
-                />
-              </div>
-
-              <button
-                type="button"
-                onClick={() => stepLimit(50000)}
-                className="w-10 h-10 rounded-xl bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 active:scale-95 text-slate-900 dark:text-white font-bold flex items-center justify-center transition-all shrink-0"
-              >
-                <Plus className="w-5 h-5" />
-              </button>
-            </div>
-
-            <input
-              type="range"
-              min={100000}
-              max={10000000}
-              step={50000}
-              value={Math.min(sanctionedLimit, 10000000)}
-              onChange={(e) => {
-                const val = Number(e.target.value);
-                setSanctionedLimit(val);
-                if (utilizedAmount > val) setUtilizedAmount(val);
-              }}
-              className="w-full h-2.5 bg-slate-200 dark:bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-600"
-            />
-
-            <div className="flex flex-wrap gap-2 pt-1">
-              {limitPresets.map((p) => (
-                <button
-                  key={p.val}
-                  type="button"
-                  onClick={() => {
-                    setSanctionedLimit(p.val);
-                    if (utilizedAmount > p.val) setUtilizedAmount(p.val);
-                  }}
-                  className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all ${
-                    sanctionedLimit === p.val
-                      ? 'bg-cyan-600 text-white shadow-sm'
-                      : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+                  className={`flex-1 py-1 text-[10px] font-bold rounded-lg border transition-all ${
+                    sanctionedLimit === val
+                      ? 'bg-cyan-600 border-cyan-500 text-white'
+                      : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-white'
                   }`}
                 >
-                  {p.label}
+                  {formatINRCompact(val)}
                 </button>
               ))}
             </div>
           </div>
 
-          {/* 2. UTILIZED AMOUNT */}
-          <div className="space-y-3 pt-3 border-t border-slate-100 dark:border-slate-800">
-            <div className="flex items-center justify-between text-xs font-bold">
-              <span className="text-slate-700 dark:text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
-                <Wallet className="w-4 h-4 text-amber-500" /> Actually Utilized Amount
-              </span>
-              <span className="text-amber-500 font-extrabold">({calculation.utilizationPercent}% of Limit)</span>
+          {/* B. FIXED FACILITY CHARGES (Payable regardless of usage) */}
+          <div className="space-y-1.5 pt-2 border-t border-slate-800/80">
+            <div className="flex justify-between items-center text-xs">
+              <div>
+                <span className="text-slate-300 font-semibold flex items-center gap-1">
+                  <Receipt className="w-3.5 h-3.5 text-rose-400" />
+                  Facility Charges (Fixed Outflow)
+                </span>
+                <span className="text-[10px] text-slate-500 block">
+                  Lagta hi lagta hai, chahe ₹1 bhi use na karein
+                </span>
+              </div>
+              <span className="text-rose-400 font-bold">+{formatINR(calculation.totalSetupCharges)}</span>
             </div>
 
-            <div className="flex items-center justify-between gap-3 bg-slate-50 dark:bg-slate-950 p-3 sm:p-4 rounded-2xl border border-slate-200 dark:border-slate-800 focus-within:border-amber-500 transition-colors">
-              <button
-                type="button"
-                onClick={() => stepUtilized(-25000)}
-                className="w-10 h-10 rounded-xl bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 active:scale-95 text-slate-900 dark:text-white font-bold flex items-center justify-center transition-all shrink-0"
-              >
-                <Minus className="w-5 h-5" />
-              </button>
-
-              <div className="flex items-center justify-center flex-1">
-                <span className="text-2xl sm:text-3xl font-bold text-slate-400 mr-1">₹</span>
-                <input
-                  type="number"
-                  inputMode="numeric"
-                  min={0}
-                  max={sanctionedLimit}
-                  value={utilizedAmount === 0 ? '' : utilizedAmount}
-                  onChange={(e) => {
-                    const val = e.target.value === '' ? 0 : Number(e.target.value);
-                    setUtilizedAmount(Math.min(sanctionedLimit, val));
-                  }}
-                  className="w-full bg-transparent text-center font-black text-2xl sm:text-3xl text-amber-500 outline-none border-none p-0 focus:ring-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                  placeholder="0"
-                />
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-0.5">
+                <div className="flex justify-between text-[10px] text-slate-400">
+                  <span>Processing Fee</span>
+                  <span className="text-amber-400 font-semibold">{formatINR(calculation.upfrontProcessingFee)}</span>
+                </div>
+                <div className="flex items-center bg-slate-950 px-2.5 py-1.5 rounded-xl border border-slate-800 focus-within:border-cyan-500">
+                  <input
+                    type="number"
+                    step="0.1"
+                    inputMode="decimal"
+                    value={processingFeePercent === 0 ? '' : processingFeePercent}
+                    onChange={(e) => setProcessingFeePercent(e.target.value === '' ? 0 : parseFloat(e.target.value))}
+                    className="w-full bg-transparent font-bold text-sm text-white outline-none border-none p-0 focus:ring-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    placeholder="1.5"
+                  />
+                  <span className="text-xs text-slate-500 ml-1">%</span>
+                </div>
               </div>
 
-              <button
-                type="button"
-                onClick={() => stepUtilized(25000)}
-                className="w-10 h-10 rounded-xl bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 active:scale-95 text-slate-900 dark:text-white font-bold flex items-center justify-center transition-all shrink-0"
-              >
-                <Plus className="w-5 h-5" />
-              </button>
+              <div className="space-y-0.5">
+                <div className="flex justify-between text-[10px] text-slate-400">
+                  <span>Annual AMC/Doc</span>
+                  <span className="text-slate-300 font-semibold">{annualMaintenanceFee === 0 ? '₹0' : formatINR(annualMaintenanceFee)}</span>
+                </div>
+                <div className="flex items-center bg-slate-950 px-2.5 py-1.5 rounded-xl border border-slate-800 focus-within:border-cyan-500">
+                  <span className="text-xs text-slate-500 mr-1">₹</span>
+                  <input
+                    type="number"
+                    inputMode="numeric"
+                    value={annualMaintenanceFee === 0 ? '' : annualMaintenanceFee}
+                    onChange={(e) => setAnnualMaintenanceFee(e.target.value === '' ? 0 : Number(e.target.value))}
+                    className="w-full bg-transparent font-bold text-sm text-white outline-none border-none p-0 focus:ring-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    placeholder="1000"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* C. Actually Utilized Amount (Starts at ₹0) */}
+          <div className="space-y-1.5 pt-2 border-t border-slate-800/80">
+            <div className="flex justify-between items-center text-xs">
+              <label className="text-slate-300 font-semibold flex items-center gap-1">
+                <Wallet className="w-3.5 h-3.5 text-amber-400" />
+                Actually Utilized Amount
+              </label>
+              <span className="text-amber-400 font-bold">{formatINRCompact(calculation.utilized)}</span>
             </div>
 
-            <input
-              type="range"
-              min={0}
-              max={sanctionedLimit}
-              step={10000}
-              value={utilizedAmount}
-              onChange={(e) => setUtilizedAmount(Number(e.target.value))}
-              className="w-full h-2.5 bg-slate-200 dark:bg-slate-800 rounded-lg appearance-none cursor-pointer accent-amber-500"
-            />
+            <div className="flex items-center bg-slate-950 px-3 py-2 rounded-xl border border-slate-800 focus-within:border-amber-500">
+              <span className="text-base font-bold text-slate-500 mr-2">₹</span>
+              <input
+                type="number"
+                inputMode="numeric"
+                value={utilizedAmount === 0 ? '' : utilizedAmount}
+                onChange={(e) => {
+                  const val = e.target.value === '' ? 0 : Number(e.target.value);
+                  setUtilizedAmount(Math.min(sanctionedLimit, val));
+                }}
+                className="w-full bg-transparent font-bold text-lg text-amber-400 outline-none border-none p-0 focus:ring-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                placeholder="0 (Withdraw nothing = ₹0 interest)"
+              />
+            </div>
 
             {/* Quick Utilization % Chips */}
-            <div className="flex flex-wrap gap-2 pt-1">
-              {[25, 50, 75, 100].map((pct) => {
-                const targetVal = Math.round((sanctionedLimit * pct) / 100);
+            <div className="flex gap-1.5 pt-0.5">
+              {[0, 25, 50, 75, 100].map((pct) => {
+                const targetVal = Math.round(((sanctionedLimit || 0) * pct) / 100);
                 return (
                   <button
                     key={pct}
                     type="button"
                     onClick={() => setUtilizedAmount(targetVal)}
-                    className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all ${
+                    className={`flex-1 py-1 text-[10px] font-bold rounded-lg border transition-all ${
                       utilizedAmount === targetVal
-                        ? 'bg-amber-500 text-white shadow-sm'
-                        : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+                        ? 'bg-amber-500 border-amber-400 text-white'
+                        : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-white'
                     }`}
                   >
-                    Use {pct}% ({formatINRCompact(targetVal)})
+                    {pct === 0 ? '₹0 (None)' : `${pct}%`}
                   </button>
                 );
               })}
             </div>
           </div>
 
-          {/* 3. INTEREST RATE */}
-          <div className="space-y-3 pt-3 border-t border-slate-100 dark:border-slate-800">
-            <div className="flex items-center justify-between text-xs font-bold">
-              <span className="text-slate-700 dark:text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
-                <Percent className="w-4 h-4 text-cyan-600 dark:text-cyan-400" /> Interest Rate
-              </span>
+          {/* D. Interest Rate */}
+          <div className="space-y-1.5 pt-2 border-t border-slate-800/80">
+            <div className="flex justify-between items-center text-xs">
+              <label className="text-slate-300 font-semibold flex items-center gap-1">
+                <Percent className="w-3.5 h-3.5 text-cyan-400" />
+                Interest Rate (Applies only when used)
+              </label>
 
-              {/* Monthly vs Annual Selector (Yearly Selected by Default) */}
-              <div className="inline-flex p-1 bg-slate-100 dark:bg-slate-950 rounded-xl border border-slate-200 dark:border-slate-800">
+              <div className="inline-flex p-0.5 bg-slate-950 rounded-lg border border-slate-800 text-[10px]">
                 <button
                   type="button"
                   onClick={() => {
                     setRateType('annual');
-                    if (rateType === 'monthly') setInterestRate(Number((interestRate * 12).toFixed(2)));
+                    if (rateType === 'monthly') setInterestRate(Number(((interestRate || 0) * 12).toFixed(2)));
                   }}
-                  className={`px-3 py-1 text-xs font-bold rounded-lg transition-all ${
-                    rateType === 'annual' ? 'bg-cyan-600 text-white shadow-sm' : 'text-slate-500 dark:text-slate-400'
+                  className={`px-2 py-0.5 font-bold rounded ${
+                    rateType === 'annual' ? 'bg-cyan-600 text-white' : 'text-slate-400'
                   }`}
                 >
-                  Yearly (% p.a.)
+                  Yearly
                 </button>
                 <button
                   type="button"
                   onClick={() => {
                     setRateType('monthly');
-                    if (rateType === 'annual') setInterestRate(Number((interestRate / 12).toFixed(2)));
+                    if (rateType === 'annual') setInterestRate(Number(((interestRate || 0) / 12).toFixed(2)));
                   }}
-                  className={`px-3 py-1 text-xs font-bold rounded-lg transition-all ${
-                    rateType === 'monthly' ? 'bg-cyan-600 text-white shadow-sm' : 'text-slate-500 dark:text-slate-400'
+                  className={`px-2 py-0.5 font-bold rounded ${
+                    rateType === 'monthly' ? 'bg-cyan-600 text-white' : 'text-slate-400'
                   }`}
                 >
-                  Monthly (% / mo)
+                  Monthly
                 </button>
               </div>
             </div>
 
-            <div className="flex items-center justify-between gap-3 bg-slate-50 dark:bg-slate-950 p-3 sm:p-4 rounded-2xl border border-slate-200 dark:border-slate-800 focus-within:border-cyan-500 transition-colors">
-              <button
-                type="button"
-                onClick={() => stepRate(-0.1)}
-                className="w-10 h-10 rounded-xl bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 active:scale-95 text-slate-900 dark:text-white font-bold flex items-center justify-center transition-all shrink-0"
-              >
-                <Minus className="w-5 h-5" />
-              </button>
+            <div className="flex items-center bg-slate-950 px-3 py-2 rounded-xl border border-slate-800 focus-within:border-cyan-500">
+              <input
+                type="number"
+                step="0.05"
+                inputMode="decimal"
+                value={interestRate === 0 ? '' : interestRate}
+                onChange={(e) => setInterestRate(e.target.value === '' ? 0 : parseFloat(e.target.value))}
+                className="w-full bg-transparent font-bold text-lg text-white outline-none border-none p-0 focus:ring-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                placeholder="12"
+              />
+              <span className="text-xs font-bold text-slate-500 ml-2 shrink-0">
+                {rateType === 'annual' ? '% per year' : '% per month'}
+              </span>
+            </div>
+          </div>
 
-              <div className="flex flex-col items-center justify-center flex-1">
-                <div className="flex items-center justify-center">
-                  <input
-                    type="number"
-                    step="0.05"
-                    inputMode="decimal"
-                    min={0.05}
-                    max={40}
-                    value={interestRate === 0 ? '' : interestRate}
-                    onChange={(e) => setInterestRate(e.target.value === '' ? 0 : parseFloat(e.target.value))}
-                    className="w-24 bg-transparent text-center font-black text-2xl sm:text-3xl text-slate-900 dark:text-white outline-none border-none p-0 focus:ring-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                    placeholder="12.0"
+        </div>
+
+        {/* 4. VISUAL OD UTILIZATION & CHARGES DONUT GRAPH CARD */}
+        <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-3.5 space-y-3">
+          <div className="flex items-center justify-between text-xs font-bold">
+            <span className="text-slate-300 uppercase tracking-wider text-[11px] flex items-center gap-1.5">
+              <PieIcon className="w-3.5 h-3.5 text-cyan-400" />
+              <span>Credit Line Allocation</span>
+            </span>
+            <span className="text-slate-400 text-[10px]">
+              Limit: {formatINRCompact(calculation.limit)}
+            </span>
+          </div>
+
+          <div className="flex items-center justify-between gap-4">
+            {/* SVG Donut Visual */}
+            <div className="relative w-24 h-24 shrink-0 flex items-center justify-center">
+              <svg className="w-full h-full -rotate-90" viewBox="0 0 100 100">
+                <circle
+                  cx="50"
+                  cy="50"
+                  r={radius}
+                  fill="transparent"
+                  stroke="#1e293b"
+                  strokeWidth="11"
+                />
+
+                {/* Utilized Slice (Amber) */}
+                {calculation.utilized > 0 && (
+                  <circle
+                    cx="50"
+                    cy="50"
+                    r={radius}
+                    fill="transparent"
+                    stroke="#f59e0b"
+                    strokeWidth="11"
+                    strokeDasharray={`${(calculation.utilizationPercent / 100) * circumference} ${circumference}`}
+                    strokeDashoffset={-utilizedOffset}
                   />
-                  <span className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white ml-0.5">%</span>
-                </div>
-                <span className="text-[10px] text-slate-500 font-medium">
-                  {rateType === 'annual' ? `≈ ${(interestRate / 12).toFixed(2)}% per month` : `≈ ${calculation.annualRatePercent.toFixed(2)}% per annum`}
+                )}
+
+                {/* Available Slice (Emerald - 100% when utilized is 0) */}
+                <circle
+                  cx="50"
+                  cy="50"
+                  r={radius}
+                  fill="transparent"
+                  stroke="#10b981"
+                  strokeWidth="11"
+                  strokeDasharray={`${(calculation.unutilizedPercent / 100) * circumference} ${circumference}`}
+                  strokeDashoffset={-unutilizedOffset}
+                />
+              </svg>
+
+              {/* Center Label */}
+              <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
+                <span className="text-[9px] text-slate-400 font-medium">Used</span>
+                <span className="text-xs font-black text-white">
+                  {calculation.utilizationPercent}%
                 </span>
               </div>
+            </div>
 
-              <button
-                type="button"
-                onClick={() => stepRate(0.1)}
-                className="w-10 h-10 rounded-xl bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 active:scale-95 text-slate-900 dark:text-white font-bold flex items-center justify-center transition-all shrink-0"
-              >
-                <Plus className="w-5 h-5" />
-              </button>
+            {/* Legend Stats */}
+            <div className="flex-1 space-y-1.5 text-xs">
+              <div className="flex items-center justify-between">
+                <span className="flex items-center gap-1.5 text-slate-300">
+                  <span className="w-2.5 h-2.5 rounded-full bg-amber-400 shrink-0" />
+                  <span>Utilized ({calculation.utilizationPercent}%)</span>
+                </span>
+                <span className="font-bold text-amber-400">{formatINR(calculation.utilized)}</span>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <span className="flex items-center gap-1.5 text-slate-300">
+                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shrink-0" />
+                  <span>Available (₹0 Int)</span>
+                </span>
+                <span className="font-bold text-emerald-400">{formatINR(calculation.unutilized)}</span>
+              </div>
+
+              <div className="flex items-center justify-between pt-1 border-t border-slate-800">
+                <span className="flex items-center gap-1.5 text-slate-400 text-[11px]">
+                  <span className="w-2 h-2 rounded-full bg-rose-500 shrink-0" />
+                  <span>Fixed Charges</span>
+                </span>
+                <span className="font-bold text-rose-400 text-[11px]">+{formatINR(calculation.totalSetupCharges)}</span>
+              </div>
             </div>
           </div>
 
-        </div>
-
-        {/* 3. OD SUMMARY GRID */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="bg-white dark:bg-slate-900 rounded-3xl p-5 border border-slate-200/80 dark:border-slate-800 space-y-1">
-            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 block">
-              Sanctioned Limit
-            </span>
-            <div className="text-2xl font-black text-slate-900 dark:text-white">
-              {formatINR(calculation.limit)}
-            </div>
-            <span className="text-[11px] text-slate-400 block">Total approved bank facility</span>
-          </div>
-
-          <div className="bg-white dark:bg-slate-900 rounded-3xl p-5 border border-slate-200/80 dark:border-slate-800 space-y-1">
-            <span className="text-xs font-semibold text-amber-500 block">
-              Utilized Balance
-            </span>
-            <div className="text-2xl font-black text-amber-500">
-              {formatINR(calculation.utilized)}
-            </div>
-            <span className="text-[11px] text-slate-400 block">Interest charged only on this</span>
-          </div>
-
-          <div className="bg-white dark:bg-slate-900 rounded-3xl p-5 border border-slate-200/80 dark:border-slate-800 space-y-1">
-            <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 block">
-              Available Limit
-            </span>
-            <div className="text-2xl font-black text-emerald-600 dark:text-emerald-400">
-              {formatINR(calculation.unutilized)}
-            </div>
-            <span className="text-[11px] text-emerald-600/80 font-medium block">₹0 interest on this reserve</span>
+          {/* Quick Proportion Bar */}
+          <div className="w-full h-2 rounded-full overflow-hidden flex bg-slate-800 mt-1">
+            <div style={{ width: `${calculation.utilizationPercent}%` }} className="h-full bg-amber-400" />
+            <div style={{ width: `${calculation.unutilizedPercent}%` }} className="h-full bg-emerald-500" />
           </div>
         </div>
 
-        {/* 4. EXPLANATORY OD LOGIC BANNER */}
-        <div className="p-4 rounded-2xl bg-cyan-50 dark:bg-cyan-950/40 border border-cyan-200 dark:border-cyan-800/60 text-xs text-cyan-900 dark:text-cyan-200 flex items-start gap-3">
-          <Info className="w-5 h-5 text-cyan-600 dark:text-cyan-400 shrink-0 mt-0.5" />
-          <div className="space-y-1 leading-relaxed">
-            <span className="font-bold block">How OD / Flexi Math works:</span>
-            <span>
-              Unlike standard term loans where EMI is charged on the whole amount, an Overdraft facility calculates interest on a daily rest basis exclusively for the money withdrawn ({formatINR(calculation.utilized)}). Any repaid amount immediately stops accruing interest.
-            </span>
-          </div>
+        {/* 5. SMART TAKEAWAY NOTE */}
+        <div className="p-3 rounded-2xl bg-slate-900 border border-slate-800 flex items-start gap-2 text-xs text-slate-300">
+          {calculation.utilized === 0 ? (
+            <>
+              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+              <p className="leading-relaxed text-[11px] text-slate-400">
+                Aapka pura limit <strong className="text-white">{formatINR(calculation.limit)}</strong> reserve me hai. Jab tak aap ek rupya bhi withdraw nahi karte, tab tak <strong className="text-emerald-400">₹0 monthly interest</strong> lagega. Sirf bank setup/AMC fee (<strong className="text-rose-400">{formatINR(calculation.totalSetupCharges)}</strong>) alag se one-time/annual lagti hai.
+              </p>
+            </>
+          ) : (
+            <>
+              <AlertCircle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+              <p className="leading-relaxed text-[11px] text-slate-400">
+                Aapne <strong className="text-white">{formatINR(calculation.utilized)}</strong> nikala hai, isliye sirf isi amount par daily calculation se <strong className="text-amber-400">{formatINR(calculation.monthlyInterest)}/month</strong> interest lag raha hai. Bacha hua <strong className="text-emerald-400">{formatINR(calculation.unutilized)}</strong> free hai.
+              </p>
+            </>
+          )}
         </div>
 
       </main>
-
-      <Footer />
     </div>
   );
 }
