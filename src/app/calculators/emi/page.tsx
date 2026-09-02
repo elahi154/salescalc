@@ -59,7 +59,7 @@ export default function EMICalculatorPage() {
     const P = financedPrincipal;
     const annualRate = rateType === 'monthly' ? (interestRate || 0) * 12 : (interestRate || 0);
     const monthlyRate = annualRate / 12 / 100;
-    const totalMonths = tenureType === 'years' ? (tenureValue || 1) * 12 : (tenureValue || 1);
+    const totalMonths = tenureType === 'years' ? (tenureValue || 0) * 12 : (tenureValue || 0);
 
     if (P <= 0 || monthlyRate <= 0 || totalMonths <= 0) {
       return {
@@ -177,7 +177,7 @@ export default function EMICalculatorPage() {
           </div>
         </div>
 
-        {/* 3. INPUT CONTROLS (WITHOUT ARROW SPINNERS) */}
+        {/* 3. INPUT CONTROLS (DIRECTLY EDITABLE & SMOOTH CLEARING) */}
         <div className="space-y-2.5">
           
           {/* Card 1: Loan Amount */}
@@ -326,7 +326,7 @@ export default function EMICalculatorPage() {
             </div>
           </div>
 
-          {/* Card 4: Loan Duration */}
+          {/* Card 4: Loan Duration (Clear & Edit without 1-lock) */}
           <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-3 space-y-2">
             <div className="flex items-center justify-between text-xs font-bold">
               <span className="text-slate-300 flex items-center gap-1">
@@ -370,14 +370,16 @@ export default function EMICalculatorPage() {
               <input
                 type="number"
                 inputMode="numeric"
-                min={1}
                 value={tenureValue === 0 ? '' : tenureValue}
-                onChange={(e) => updateInput('tenureValue', e.target.value === '' ? 1 : Number(e.target.value))}
+                onChange={(e) => {
+                  const val = e.target.value === '' ? 0 : Number(e.target.value);
+                  updateInput('tenureValue', val);
+                }}
                 className="w-full bg-transparent font-black text-xl text-white outline-none border-none p-0 focus:ring-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                 placeholder="5"
               />
               <span className="text-xs font-bold text-blue-400 ml-2 shrink-0">
-                {tenureType === 'years' ? `${tenureValue * 12} Total EMIs` : `${tenureValue} Total EMIs`}
+                {tenureType === 'years' ? `${(tenureValue || 0) * 12} Total EMIs` : `${tenureValue || 0} Total EMIs`}
               </span>
             </div>
           </div>
