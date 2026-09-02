@@ -22,6 +22,7 @@ export default function EMICalculatorPage() {
     inputs,
     updateInput,
     setFullState,
+    calculationResult,
     monthlySchedule,
     tenureComparison,
   } = useLoanCalculator();
@@ -31,11 +32,11 @@ export default function EMICalculatorPage() {
   const [isCustomerViewOpen, setIsCustomerViewOpen] = useState<boolean>(false);
   const [isReportOpen, setIsReportOpen] = useState<boolean>(false);
 
-  // Upfront Charges states
+  // Upfront Extra Charges
   const [processingFeePercent, setProcessingFeePercent] = useState<number>(2.5);
   const [otherCharges, setOtherCharges] = useState<number>(0);
 
-  // Safe initialization
+  // Safe default initialization
   const initialized = useRef(false);
   useEffect(() => {
     if (!initialized.current) {
@@ -48,12 +49,12 @@ export default function EMICalculatorPage() {
     }
   }, [setFullState]);
 
-  // Math: Charges + Capitalized Principal
+  // Charges math
   const processingFeeAmount = Math.round(((loanAmount || 0) * (processingFeePercent || 0)) / 100);
   const totalUpfrontCharges = processingFeeAmount + (otherCharges || 0);
   const financedPrincipal = (loanAmount || 0) + totalUpfrontCharges;
 
-  // Real-time EMI math
+  // Real-time Calculation merged with base CalculationResult interface
   const liveCalculation = useMemo(() => {
     const P = financedPrincipal;
     const annualRate = rateType === 'monthly' ? (interestRate || 0) * 12 : (interestRate || 0);
@@ -62,40 +63,50 @@ export default function EMICalculatorPage() {
 
     if (P <= 0 || monthlyRate <= 0 || totalMonths <= 0) {
       return {
+        ...calculationResult,
         loanAmount: P,
         principal: P,
         financedPrincipal: P,
         emi: 0,
+        exactEmi: 0,
         totalInterest: 0,
         totalPayable: P,
+        totalCost: P,
+        processingFee: processingFeeAmount,
         totalCharges: totalUpfrontCharges,
+        monthlyRate: 0,
+        annualRate: 0,
         tenureMonths: totalMonths,
       };
     }
 
-    const emiValue = Math.round(
-      (P * monthlyRate * Math.pow(1 + monthlyRate, totalMonths)) /
-        (Math.pow(1 + monthlyRate, totalMonths) - 1)
-    );
-
+    const factor = Math.pow(1 + monthlyRate, totalMonths);
+    const exactEmiValue = (P * monthlyRate * factor) / (factor - 1);
+    const emiValue = Math.round(exactEmiValue);
     const totalPayableValue = emiValue * totalMonths;
     const totalInterestValue = Math.max(0, totalPayableValue - P);
 
     return {
+      ...calculationResult,
       loanAmount: P,
       principal: P,
       financedPrincipal: P,
       emi: emiValue,
+      exactEmi: exactEmiValue,
       totalInterest: totalInterestValue,
       totalPayable: totalPayableValue,
+      totalCost: totalPayableValue,
+      processingFee: processingFeeAmount,
       totalCharges: totalUpfrontCharges,
+      monthlyRate,
+      annualRate,
       tenureMonths: totalMonths,
     };
-  }, [financedPrincipal, totalUpfrontCharges, interestRate, rateType, tenureValue, tenureType]);
+  }, [financedPrincipal, totalUpfrontCharges, processingFeeAmount, interestRate, rateType, tenureValue, tenureType, calculationResult]);
 
   const { emi, totalInterest, totalPayable } = liveCalculation;
 
-  // Exact 3-way Split Percentage for the Mini Gauge/Donut Chart
+  // Exact 3-way Split Percentage for Donut
   const totalOutflow = financedPrincipal + totalInterest;
   const loanShare = totalOutflow > 0 ? Number(((loanAmount / totalOutflow) * 100).toFixed(1)) : 0;
   const chargesShare = totalOutflow > 0 ? Number(((totalUpfrontCharges / totalOutflow) * 100).toFixed(1)) : 0;
@@ -166,7 +177,7 @@ export default function EMICalculatorPage() {
           </div>
         </div>
 
-        {/* 3. INPUT CONTROLS (SPINNER ARROWS REMOVED) */}
+        {/* 3. INPUT CONTROLS (WITHOUT ARROW SPINNERS) */}
         <div className="space-y-2.5">
           
           {/* Card 1: Loan Amount */}
@@ -373,7 +384,7 @@ export default function EMICalculatorPage() {
 
         </div>
 
-        {/* 4. BOTTOM DEDICATED PIE / DONUT BREAKDOWN CHART */}
+        {/* 4. BOTTOM DONUT / PIE BREAKDOWN CHART */}
         <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-3.5 space-y-3">
           <div className="flex items-center justify-between text-xs font-bold">
             <span className="text-slate-300 uppercase tracking-wider text-[11px]">
@@ -388,7 +399,6 @@ export default function EMICalculatorPage() {
             {/* Donut Visual */}
             <div className="relative w-24 h-24 shrink-0 flex items-center justify-center">
               <svg className="w-full h-full -rotate-90" viewBox="0 0 100 100">
-                {/* Background Ring */}
                 <circle
                   cx="50"
                   cy="50"
@@ -435,7 +445,6 @@ export default function EMICalculatorPage() {
                 />
               </svg>
 
-              {/* Center Donut Label */}
               <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
                 <span className="text-[9px] text-slate-400 font-medium">Principal</span>
                 <span className="text-xs font-black text-white">{loanShare}%</span>
@@ -470,7 +479,6 @@ export default function EMICalculatorPage() {
             </div>
           </div>
 
-          {/* Quick 100% Horizontal Proportion Bar */}
           <div className="w-full h-2 rounded-full overflow-hidden flex bg-slate-800 mt-1">
             <div style={{ width: `${loanShare}%` }} className="h-full bg-blue-500" />
             <div style={{ width: `${chargesShare}%` }} className="h-full bg-rose-500" />
